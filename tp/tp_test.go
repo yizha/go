@@ -17,7 +17,7 @@ func TestTP(t *testing.T) {
 		//sLen, dLen := len(s), len(d)
 		_, _, err := Solve(s, d, c)
 		if err != nil {
-			t.Error("failed to create state", err)
+			t.Error("failed to solve givn TP problem:", err)
 			//fmt.Println(err)
 			//os.Exit(1)
 		} else {
