@@ -163,7 +163,7 @@ func createState(s, d []float32, c [][]float32, maxIter int, epsilon, infinity f
 			for i := 0; i < sLen; i++ {
 				supply[i] = s[i]
 			}
-			// copy demand and add one more (0)
+			// copy demand and add one more (diff)
 			demand = make([]float32, dLen+1)
 			for i := 0; i < dLen; i++ {
 				demand[i] = d[i]
@@ -302,17 +302,14 @@ func (es *state) findFeasibleSolution() error {
 				}
 				cost := es.costMatrix[i][j]
 				if cost < minCost {
-					minCost = cost
-					si = i
-					sj = j
+					si, sj, minCost = i, j, cost
 				} else if cost == minCost {
 					// for same cost cell, choose the one which
 					// transports more
 					sq := f32Min(es.supply[si], es.demand[sj])
 					q := f32Min(es.supply[i], es.demand[j])
 					if q > sq {
-						si = i
-						sj = j
+						si, sj = i, j
 					}
 				}
 			}
@@ -757,12 +754,14 @@ func Solve(supply, demand []float32, costs [][]float32, opts ...float32) (cost f
 		}
 	}
 
-	es, err := createState(supply, demand, costs, maxIter, epsilon, infinity)
-	if err != nil {
-		return float32(-1), nil, err
+	cost = float32(-1)
+	flow = nil
+	var es *state
+	if es, err = createState(supply, demand, costs, maxIter, epsilon, infinity); err != nil {
+		return
 	}
-	if err := es.solve(); err != nil {
-		return float32(-1), nil, err
+	if err = es.solve(); err != nil {
+		return
 	}
 	//es.printSolution()
 	cost, flow = es.getSolution()
