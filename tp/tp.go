@@ -676,7 +676,7 @@ func (es *state) solve() error {
 		es.applyOptimization()
 		//es.printSolution()
 		es.iterCnt += 1
-		if es.iterCnt >= maxIter {
+		if maxIter > 0 && es.iterCnt >= maxIter {
 			break
 		}
 	}
@@ -740,9 +740,6 @@ func Solve(supply, demand []float32, costs [][]float32, opts ...float32) (cost f
 	optsLen := len(opts)
 	if optsLen > 0 {
 		maxIter = int(opts[0])
-		if maxIter < 1 {
-			return float32(-1), nil, fmt.Errorf("invalid maxIter: %v", opts[0])
-		}
 		if optsLen > 1 {
 			epsilon = opts[1]
 			if epsilon > float32(1e-3) {
