@@ -5,15 +5,15 @@ import (
 	"testing"
 )
 
-type problem struct {
+type TestProblem struct {
 	id             string
 	supply, demand []float32
 	costs          [][]float32
 }
 
-var testData = []*problem{
-	// balanced
-	&problem{
+var testData = []*TestProblem{
+
+	&TestProblem{
 		id:     "balanced (supply == demand)",
 		supply: []float32{300, 400, 500},
 		demand: []float32{250, 350, 400, 200},
@@ -23,8 +23,8 @@ var testData = []*problem{
 			[]float32{8, 3, 3, 2},
 		},
 	},
-	// unbalanced (supply > demand)
-	&problem{
+
+	&TestProblem{
 		id:     "unbalanced (supply > demand)",
 		supply: []float32{300, 400, 570},
 		demand: []float32{250, 350, 400, 200},
@@ -34,8 +34,8 @@ var testData = []*problem{
 			[]float32{8, 3, 3, 2},
 		},
 	},
-	// unbalanced (supply < demand)
-	&problem{
+
+	&TestProblem{
 		id:     "unbalanced (supply < demand)",
 		supply: []float32{300, 400, 500},
 		demand: []float32{250, 350, 440, 280},
@@ -45,8 +45,8 @@ var testData = []*problem{
 			[]float32{8, 3, 3, 2},
 		},
 	},
-	// balanced (degeneracy)
-	&problem{
+
+	&TestProblem{
 		id:     "balanced (degeneracy)",
 		supply: []float32{300, 400, 500, 200},
 		demand: []float32{300, 400, 500, 200},
@@ -58,8 +58,7 @@ var testData = []*problem{
 		},
 	},
 
-	// more test data
-	&problem{
+	&TestProblem{
 		id:     "misc-1",
 		supply: []float32{45, 90, 95, 75, 105},
 		demand: []float32{120, 80, 50, 75, 85},
@@ -72,7 +71,7 @@ var testData = []*problem{
 		},
 	},
 
-	&problem{
+	&TestProblem{
 		id:     "misc-2",
 		supply: []float32{35, 50, 40},
 		demand: []float32{45, 20, 30, 30},
@@ -84,7 +83,7 @@ var testData = []*problem{
 	},
 }
 
-func printProblemAndSolution(p *problem, solutionCost float32, flow [][]float32) {
+func printProblemAndSolution(p *TestProblem, solutionCost float32, flow [][]float32) {
 	sLen, dLen := len(p.supply), len(p.demand)
 	fmt.Printf("Problem [%v]\n", p.id)
 	fmt.Printf(" Supply: %v\n", p.supply)
