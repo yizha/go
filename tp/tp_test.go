@@ -1,38 +1,132 @@
 package tp
 
 import (
-	//	"fmt"
+	"fmt"
 	"testing"
 )
 
-func TestTP(t *testing.T) {
-	s := []float32{300, 400, 500}
-	d := []float32{250, 350, 400, 200}
-	c := [][]float32{
-		[]float32{3, 1, 7, 4},
-		[]float32{2, 6, 5, 9},
-		[]float32{8, 3, 3, 2},
+type problem struct {
+	id             string
+	supply, demand []float32
+	costs          [][]float32
+}
+
+var testData = []*problem{
+	// balanced
+	&problem{
+		id:     "balanced (supply == demand)",
+		supply: []float32{300, 400, 500},
+		demand: []float32{250, 350, 400, 200},
+		costs: [][]float32{
+			[]float32{3, 1, 7, 4},
+			[]float32{2, 6, 5, 9},
+			[]float32{8, 3, 3, 2},
+		},
+	},
+	// unbalanced (supply > demand)
+	&problem{
+		id:     "unbalanced (supply > demand)",
+		supply: []float32{300, 400, 570},
+		demand: []float32{250, 350, 400, 200},
+		costs: [][]float32{
+			[]float32{3, 1, 7, 4},
+			[]float32{2, 6, 5, 9},
+			[]float32{8, 3, 3, 2},
+		},
+	},
+	// unbalanced (supply < demand)
+	&problem{
+		id:     "unbalanced (supply < demand)",
+		supply: []float32{300, 400, 500},
+		demand: []float32{250, 350, 440, 280},
+		costs: [][]float32{
+			[]float32{3, 1, 7, 4},
+			[]float32{2, 6, 5, 9},
+			[]float32{8, 3, 3, 2},
+		},
+	},
+	// balanced (supply/demand perfectly match)
+	&problem{
+		id:     "balanced (supply/demand perfectly match)",
+		supply: []float32{300, 400, 500, 200},
+		demand: []float32{300, 400, 500, 200},
+		costs: [][]float32{
+			[]float32{0, 2, 8, 4},
+			[]float32{2, 0, 5, 9},
+			[]float32{8, 5, 0, 3},
+			[]float32{4, 9, 3, 0},
+		},
+	},
+
+	// more test data
+	&problem{
+		id:     "more-test-data-1",
+		supply: []float32{45, 90, 95, 75, 105},
+		demand: []float32{120, 80, 50, 75, 85},
+		costs: [][]float32{
+			[]float32{6, 6, 9, 4, 10},
+			[]float32{3, 2, 7, 5, 12},
+			[]float32{8, 7, 5, 6, 4},
+			[]float32{11, 12, 9, 5, 2},
+			[]float32{4, 3, 4, 5, 11},
+		},
+	},
+}
+
+var debugData = []*problem{
+	&problem{
+		id:     "balanced (supply/demand perfectly match)",
+		supply: []float32{300, 400, 500, 200},
+		demand: []float32{300, 400, 500, 200},
+		costs: [][]float32{
+			[]float32{0, 2, 8, 4},
+			[]float32{2, 0, 5, 9},
+			[]float32{8, 5, 0, 3},
+			[]float32{4, 9, 3, 0},
+		},
+	},
+}
+
+func printProblemAndSolution(p *problem, solutionCost float32, flow [][]float32) {
+	sLen, dLen := len(p.supply), len(p.demand)
+	fmt.Printf("Problem [%v]\n", p.id)
+	fmt.Printf(" Supply: %v\n", p.supply)
+	fmt.Printf(" Demand: %v\n", p.demand)
+	fmt.Printf(" Cost Matrix: \n")
+	for i := 0; i < sLen; i++ {
+		fmt.Printf("  [")
+		for j := 0; j < dLen; j++ {
+			if j > 0 {
+				fmt.Print(", ")
+			}
+			fmt.Printf("%v", p.costs[i][j])
+		}
+		fmt.Println("]")
 	}
-	for i := 0; i < 10; i++ {
-		//sLen, dLen := len(s), len(d)
-		_, _, err := Solve(s, d, c)
+	fmt.Println(" Solution Flow: ")
+	for i := 0; i < sLen; i++ {
+		for j := 0; j < dLen; j++ {
+			f := flow[i][j]
+			if f == 0 {
+				continue
+			}
+			fmt.Printf("  (%v,%v),flow=%v\n", i, j, f)
+		}
+	}
+	fmt.Printf(" Solution Cost=%v\n", solutionCost)
+	fmt.Println("")
+}
+
+func TestTP(t *testing.T) {
+	for _, tp := range testData {
+		//for _, tp := range debugData {
+		cost, flow, err := Solve(tp.supply, tp.demand, tp.costs, 3)
 		if err != nil {
 			t.Error("failed to solve givn TP problem:", err)
 			//fmt.Println(err)
 			//os.Exit(1)
 		} else {
-			/*fmt.Println("Solution: ")
-			for i := 0; i < sLen; i++ {
-				for j := 0; j < dLen; j++ {
-					f := flow[i][j]
-					if f == 0 {
-						continue
-					}
-					fmt.Printf(" (%v,%v),cost=%v,flow=%v\n", i, j, c[i][j], f)
-				}
-			}
-			fmt.Printf("solution cost=%v\n", cost)
-			fmt.Println("")*/
+			printProblemAndSolution(tp, cost, flow)
 		}
 	}
 }

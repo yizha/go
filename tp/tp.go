@@ -39,6 +39,9 @@ type state struct {
 	// including the dummy amount if inputs are unbalanced
 	quatity float32
 
+	// iteration count
+	iterCnt int
+
 	// u, v matrix
 	u, v []float32
 
@@ -58,8 +61,7 @@ type state struct {
 	// loop (link-list) head
 	loop *cell
 
-	// solution
-	cost float32
+	// solution flow
 	flow [][]float32
 }
 
@@ -67,29 +69,25 @@ type cell struct {
 	// cell location
 	row, col int
 
-	// if this cell is the even one in the loop/chain
-	even bool
+	// flag to
+	//  1) mark direction to next cell
+	//  2) mark if this is the odd/even cell in chain/loop
+	// value:
+	//  true:  horizontal/odd
+	//  false: vertical/even
+	flag bool
 
 	// minimum flow value of the even cell in the loop/chain
 	loopEvenMinFlow float32
-
-	// direction to next cell
-	//  true:  horizontal
-	//  false: vertical
-	horizontal bool
 
 	// pointers to prev/next cell
 	prev, next *cell
 }
 
 func (c *cell) String() string {
-	direction := "V"
-	if c.horizontal {
-		direction = "H"
-	}
-	sign := "+"
-	if c.even {
-		sign = "-"
+	direction, sign := "V", "-"
+	if c.flag { // horizontal, odd-cell
+		direction, sign = "H", "+"
 	}
 	return fmt.Sprintf("(%v,%v)/%v/%v", c.row, c.col, direction, sign)
 }
@@ -168,7 +166,7 @@ func createState(s, d []float32, c [][]float32, maxIter int, epsilon, infinity f
 			for i := 0; i < dLen; i++ {
 				demand[i] = d[i]
 			}
-			d[dLen] = diff
+			demand[dLen] = diff
 			// copy cost matrix, append one column (0s)
 			costMatrix = make([][]float32, sLen)
 			for i := 0; i < sLen; i++ {
@@ -240,6 +238,7 @@ func createState(s, d []float32, c [][]float32, maxIter int, epsilon, infinity f
 		sLen:     sLen,
 		dLen:     dLen,
 		quatity:  quatity,
+		iterCnt:  0,
 		u:        make([]float32, sLen),
 		v:        make([]float32, dLen),
 		row:      -1,
@@ -248,7 +247,6 @@ func createState(s, d []float32, c [][]float32, maxIter int, epsilon, infinity f
 		colFlags: make([]int, dLen),
 		loop:     nil,
 
-		cost: float32(0),
 		flow: flow,
 	}, nil
 }
@@ -275,7 +273,7 @@ func (es *state) printSolution() {
 }
 
 // find the initial solution with the "Minimal Cost" method
-func (es *state) findFeasibleSolution() error {
+func (es *state) findFeasibleSolution() int {
 	//fmt.Println("[Finding feasible solution ...]")
 
 	sLen, dLen := es.sLen, es.dLen
@@ -321,11 +319,19 @@ func (es *state) findFeasibleSolution() error {
 		q := float32(0)
 		if d < s {
 			q = d
-			es.supply[si] = s - q
+			ns := s - q
+			if ns <= epsilon {
+				ns = 0
+			}
+			es.supply[si] = ns
 			es.demand[sj] = 0
 		} else {
 			q = s
-			es.demand[sj] = d - q
+			nd := d - q
+			if nd <= epsilon {
+				nd = 0
+			}
+			es.demand[sj] = nd
 			es.supply[si] = 0
 		}
 		quatity = quatity - q
@@ -339,12 +345,7 @@ func (es *state) findFeasibleSolution() error {
 	}
 
 	//fmt.Println("")
-
-	if sLen+dLen == flowCnt+1 {
-		return nil
-	} else {
-		return fmt.Errorf("[findFeasibleSolution] sLen:%v + dLen:%v - 1 != flowCnt:%v", sLen, dLen, flowCnt)
-	}
+	return flowCnt
 }
 
 func (es *state) computeUV() error {
@@ -418,7 +419,7 @@ func (es *state) computeUV() error {
 					//fmt.Printf(">>>> skipping row #%v.\n", row)
 					continue
 				}
-				u := es.costMatrix[row][col] - es.v[row]
+				u := es.costMatrix[row][col] - es.v[col]
 				es.u[row] = u
 				uComputedCnt += 1
 				//fmt.Printf(">>>> computed u[%v]=%v\n", row, u)
@@ -493,40 +494,28 @@ func (es *state) findLoop() error {
 	for i := 0; i < dLen; i++ {
 		es.colFlags[i] = 0
 	}
+	// create the head cell
+	// we only need to start with a horizontal cell (flag=true)
+	// as the loop should end with a vertical cell, same as
+	// starting it with a vertical cell (flag=false) which should
+	// end with a horizontal cell
 	head := &cell{
 		row:             es.row,
 		col:             es.col,
-		horizontal:      true,
-		even:            false,
+		flag:            true,
 		loopEvenMinFlow: infinity,
 		prev:            nil,
 		next:            nil,
 	}
 
 	curr := head
-	cycle := 0
 	step := 0
 
+	//fmt.Printf("starting from cell at %v\n", curr)
 	for {
 
-		if curr == head {
-			cycle += 1
-			if cycle == 1 {
-				// starting horizontally
-				//fmt.Printf("starting from cell at %v\n", head)
-			} else if cycle == 2 {
-				// try again starting vertically
-				curr.horizontal = false
-				//fmt.Printf("starting again from cell at %v\n", head)
-			} else {
-				// fail to found a valid loop
-				head = nil
-				break
-			}
-		}
-
 		nexti, nextj := -1, -1
-		if curr.horizontal {
+		if curr.flag { // horizontal
 			i := curr.row
 			next := curr.next
 			start := 0
@@ -551,7 +540,7 @@ func (es *state) findLoop() error {
 				start = next.row + 1
 			}
 			if start < sLen {
-				for i := 0; i < sLen; i++ {
+				for i := start; i < sLen; i++ {
 					if i == curr.row || es.flow[i][j] <= epsilon || es.rowFlags[i] == 1 {
 						continue
 					}
@@ -563,11 +552,11 @@ func (es *state) findLoop() error {
 		}
 
 		if nexti >= 0 { // found next cell
-			nextEven := !curr.even
+			nextFlag := !curr.flag
 			loopEvenMinFlow := curr.loopEvenMinFlow
 			// new cell is the even one in the chain,
 			// need to calculate the min flow
-			if nextEven {
+			if !nextFlag { // next is the even cell
 				nextFlow := es.flow[nexti][nextj]
 				if nextFlow < loopEvenMinFlow {
 					loopEvenMinFlow = nextFlow
@@ -577,8 +566,7 @@ func (es *state) findLoop() error {
 			next := &cell{
 				row:             nexti,
 				col:             nextj,
-				horizontal:      !curr.horizontal,
-				even:            nextEven,
+				flag:            nextFlag,
 				loopEvenMinFlow: loopEvenMinFlow,
 				prev:            curr,
 				next:            nil,
@@ -589,16 +577,22 @@ func (es *state) findLoop() error {
 
 			//fmt.Printf("step #%v: found next cell %v\n", step, curr)
 
-			if (head.horizontal && (curr.col == head.col)) || (!head.horizontal && (curr.row == head.row)) {
+			if curr.col == head.col {
 				// found a valid loop
 				break
 			}
-		} else { // cannot find next cell, need to go back
-			if curr != head { // cannot go back if it is already head
+		} else { // didn't find next cell, need to go back
+			if curr == head {
+				// cannot go back from head which means we couldn't
+				// find a valid loop
+				//fmt.Printf("cannot find a valid loop starting from %v\n", head)
+				head = nil
+				break
+			} else {
 				curr = curr.prev
-				if curr.horizontal {
+				if curr.flag { // horizontal
 					es.rowFlags[curr.row] = 0
-				} else {
+				} else { // vertical
 					es.colFlags[curr.col] = 0
 				}
 				step += 1
@@ -611,6 +605,7 @@ func (es *state) findLoop() error {
 	if head != nil {
 		// save loop even-cell min flow to head cell for easy access
 		head.loopEvenMinFlow = curr.loopEvenMinFlow
+		// save loop head cell
 		es.loop = head
 
 		/*fmt.Println("found a valid loop:")
@@ -629,6 +624,7 @@ func (es *state) findLoop() error {
 
 		return nil
 	} else {
+		// clear loop head cell
 		es.loop = nil
 		//fmt.Println("")
 		return fmt.Errorf("[findLoop()] cannot find a valid loop starting from (%v,%v).", es.row, es.col)
@@ -641,39 +637,46 @@ func (es *state) applyOptimization() {
 	for p != nil {
 		row, col := p.row, p.col
 		flow := es.flow[row][col]
-		if p.even {
-			es.flow[row][col] = flow - q
-		} else {
+		if p.flag { // odd cell
 			es.flow[row][col] = flow + q
+		} else { // even cell
+			es.flow[row][col] = flow - q
 		}
 		p = p.next
 	}
 }
 
 func (es *state) solve() error {
-	if err := es.findFeasibleSolution(); err != nil {
-		return err
-	}
+	flowCnt := es.findFeasibleSolution()
 	//es.printSolution()
 
+	// cannot continue with U,V method if
+	// solution flow cell count != len(supply) + len(demand) - 1
+	if flowCnt != es.sLen+es.dLen-1 {
+		return nil
+	}
+
 	maxIter := es.maxIter
-	iter := 0
 	//optimal := false
 	for {
+		//fmt.Printf("iteration #%v\n", iter)
 		if err := es.computeUV(); err != nil {
 			return err
 		}
+		//fmt.Printf("computed u=%v v=%v\n", es.u, es.v)
 		if es.isOptimal() {
+			//fmt.Println("we got optimal solution!")
 			//optimal = true
 			break
 		}
+		//fmt.Printf("optimization start cell: (%v, %v)\n", es.row, es.col)
 		if err := es.findLoop(); err != nil {
 			return err
 		}
 		es.applyOptimization()
 		//es.printSolution()
-		iter += 1
-		if iter > maxIter {
+		es.iterCnt += 1
+		if es.iterCnt >= maxIter {
 			break
 		}
 	}
@@ -736,23 +739,25 @@ func Solve(supply, demand []float32, costs [][]float32, opts ...float32) (cost f
 	maxIter, epsilon, infinity := MAX_ITER, EPSILON, INFINITY
 	optsLen := len(opts)
 	if optsLen > 0 {
-		maxIter := int(opts[0])
+		maxIter = int(opts[0])
 		if maxIter < 1 {
 			return float32(-1), nil, fmt.Errorf("invalid maxIter: %v", opts[0])
 		}
 		if optsLen > 1 {
-			epsilon := opts[1]
+			epsilon = opts[1]
 			if epsilon > float32(1e-3) {
 				return float32(-1), nil, fmt.Errorf("Given epsilon is too big (>1e-3): %v", opts[1])
 			}
 			if optsLen > 2 {
-				infinity := opts[2]
+				infinity = opts[2]
 				if infinity < float32(1e10) {
 					return float32(-1), nil, fmt.Errorf("Given infinity is too small (<1e10): %v", opts[2])
 				}
 			}
 		}
 	}
+
+	//fmt.Printf("maxIter=%v, epsilon=%v, infinity=%v\n", maxIter, epsilon, infinity)
 
 	cost = float32(-1)
 	flow = nil
