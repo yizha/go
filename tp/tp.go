@@ -2,6 +2,7 @@ package tp
 
 import (
 	"fmt"
+	//"time"
 )
 
 const (
@@ -15,7 +16,7 @@ const (
 	MAX_ITER = 100
 )
 
-type state struct {
+type Problem struct {
 
 	// 'static' variables
 	epsilon, infinity float32
@@ -62,7 +63,14 @@ type state struct {
 	loop *cell
 
 	// solution flow
-	flow [][]float32
+	flow [][]*flowcell
+}
+
+// to solve degeneracy, use a struct to indicate
+// if it is a basic variable with value 0
+type flowcell struct {
+	basic bool
+	value float32
 }
 
 type cell struct {
@@ -106,7 +114,7 @@ func f32Max(a, b float32) float32 {
 	return b
 }
 
-func createState(s, d []float32, c [][]float32, maxIter int, epsilon, infinity float32) (*state, error) {
+func createProblem(s, d []float32, c [][]float32, maxIter int, epsilon, infinity float32) (*Problem, error) {
 	sLen := len(s)
 	if sLen < 1 {
 		return nil, fmt.Errorf("not enough producers, need at least 1!")
@@ -221,11 +229,14 @@ func createState(s, d []float32, c [][]float32, maxIter int, epsilon, infinity f
 	}
 
 	// create emd-state struct
-	flow := make([][]float32, sLen)
+	flow := make([][]*flowcell, sLen)
 	for i := 0; i < sLen; i++ {
-		flow[i] = make([]float32, dLen)
+		flow[i] = make([]*flowcell, dLen)
+		for j := 0; j < dLen; j++ {
+			flow[i][j] = &flowcell{}
+		}
 	}
-	return &state{
+	return &Problem{
 		epsilon:  epsilon,
 		infinity: infinity,
 		maxIter:  maxIter,
@@ -251,21 +262,22 @@ func createState(s, d []float32, c [][]float32, maxIter int, epsilon, infinity f
 	}, nil
 }
 
-func (es *state) printSolution() {
+func (es *Problem) printSolution() {
 	fmt.Println("[Solution]")
 	cost := float32(0)
-	epsilon := es.epsilon
 	for i := 0; i < es.sLen; i++ {
 		for j := 0; j < es.dLen; j++ {
-			if es.flow[i][j] < epsilon {
+			if !es.flow[i][j].basic {
 				continue
 			}
 			//fmt.Printf("i=%v,j=%v,supply=%v,demand=%v,transport=%v\n",
 			//i, j, es.supply[i], es.demand[j], es.flow[i][j])
 			c := es.costMatrix[i][j]
-			f := es.flow[i][j]
-			fmt.Printf(" (%v,%v),cost=%v,flow=%v\n", i, j, c, f)
-			cost += c * f
+			fval := es.flow[i][j].value
+			//if fval >= 0 {
+			fmt.Printf(" (%v,%v),cost=%v,flow=%v\n", i, j, c, fval)
+			cost += c * fval
+			//}
 		}
 	}
 	fmt.Printf("cost=%v\n", cost)
@@ -273,8 +285,9 @@ func (es *state) printSolution() {
 }
 
 // find the initial solution with the "Minimal Cost" method
-func (es *state) findFeasibleSolution() int {
+func (es *Problem) findFeasibleSolution() int {
 	//fmt.Println("[Finding feasible solution ...]")
+	//t1 := time.Now()
 
 	sLen, dLen := es.sLen, es.dLen
 	epsilon, infinity := es.epsilon, es.infinity
@@ -290,12 +303,12 @@ func (es *state) findFeasibleSolution() int {
 		// loop to find the least cost row/column
 		for i := 0; i < sLen; i++ {
 			// skip row if supply is "0"
-			if es.supply[i] <= epsilon {
+			if es.supply[i] <= 0 {
 				continue
 			}
 			for j := 0; j < dLen; j++ {
 				// skip column if demand is "0"
-				if es.demand[j] <= epsilon {
+				if es.demand[j] <= 0 {
 					continue
 				}
 				cost := es.costMatrix[i][j]
@@ -313,30 +326,30 @@ func (es *state) findFeasibleSolution() int {
 			}
 		}
 		// substract the selected quatity from supply/demand
-		//fmt.Printf("got min cost cell at i=%v, j=%v, cost=%v\n", si, sj, es.costMatrix[si][sj])
 		s := es.supply[si]
 		d := es.demand[sj]
+		diff := s - d
 		q := float32(0)
-		if d < s {
+		if diff > epsilon { // s > d
 			q = d
-			ns := s - q
-			if ns <= epsilon {
-				ns = 0
-			}
-			es.supply[si] = ns
+			es.supply[si] = diff
 			es.demand[sj] = 0
-		} else {
+		} else if diff < -epsilon { // s < d
 			q = s
-			nd := d - q
-			if nd <= epsilon {
-				nd = 0
-			}
-			es.demand[sj] = nd
 			es.supply[si] = 0
+			es.demand[sj] = -diff
+		} else { // s == d
+			q = s
+			es.supply[si] = 0
+			es.demand[sj] = 0
 		}
+		// remove flow value from total quatity
 		quatity = quatity - q
-		// save it to flow matrix
-		es.flow[si][sj] = q
+		//fmt.Printf("got min cost cell at (%v,%v)/%v, flow=%v, left=%v\n", si, sj, es.costMatrix[si][sj], q, quatity)
+		// set basic variable
+		fc := es.flow[si][sj]
+		fc.basic = true
+		fc.value = q
 		flowCnt += 1
 
 		if quatity <= epsilon {
@@ -344,15 +357,16 @@ func (es *state) findFeasibleSolution() int {
 		}
 	}
 
+	//fmt.Printf("findFeasibleSolution() done in %v\n", time.Now().Sub(t1))
 	//fmt.Println("")
 	return flowCnt
 }
 
-func (es *state) computeUV() error {
+func (es *Problem) computeUV() error {
 	//fmt.Println("[Computing U,V ...]")
+	//t1 := time.Now()
 
 	sLen, dLen := es.sLen, es.dLen
-	epsilon := es.epsilon
 
 	// reset row/col flags
 	for i := 0; i < sLen; i++ {
@@ -381,7 +395,7 @@ func (es *state) computeUV() error {
 			}
 			//fmt.Printf(">> scanning row #%v ...\n", row)
 			for col := 0; col < dLen; col++ {
-				if es.flow[row][col] <= epsilon || es.colFlags[col] > 1 {
+				if !es.flow[row][col].basic || es.colFlags[col] > 1 {
 					//fmt.Printf(">>>> skipping col #%v.\n", col)
 					continue
 				}
@@ -415,7 +429,7 @@ func (es *state) computeUV() error {
 			}
 			//fmt.Printf(">> scanning col #%v ...\n", col)
 			for row := 0; row < sLen; row++ {
-				if es.flow[row][col] <= epsilon || es.rowFlags[row] > 1 {
+				if !es.flow[row][col].basic || es.rowFlags[row] > 1 {
 					//fmt.Printf(">>>> skipping row #%v.\n", row)
 					continue
 				}
@@ -449,12 +463,14 @@ func (es *state) computeUV() error {
 	if uComputedCnt != sLen || vComputedCnt != dLen {
 		return fmt.Errorf("[computeUV()] U: %v/%v, V: %v/%v", uComputedCnt, sLen, vComputedCnt, dLen)
 	} else {
+		//fmt.Printf("computeUV() finished in %v\n", time.Now().Sub(t1))
 		return nil
 	}
 }
 
-func (es *state) isOptimal() bool {
+func (es *Problem) isOptimal() bool {
 	//fmt.Println("[Checking if current solution is optimal ...]")
+	//t1 := time.Now()
 	// find the base cell by computing the penalty for all no-flow cell
 	sLen, dLen := es.sLen, es.dLen
 	epsilon := es.epsilon
@@ -463,7 +479,7 @@ func (es *state) isOptimal() bool {
 	pMax := float32(-1)
 	for i := 0; i < sLen; i++ {
 		for j := 0; j < dLen; j++ {
-			if es.flow[i][j] > epsilon {
+			if es.flow[i][j].basic {
 				continue
 			}
 			p := es.u[i] + es.v[j] - es.costMatrix[i][j]
@@ -480,13 +496,14 @@ func (es *state) isOptimal() bool {
 		fmt.Printf("current solution is NOT optimal! Optimization starting cell: (%v, %v)\n", es.row, es.col)
 	}
 	fmt.Println("")*/
+	//fmt.Printf("isOptimal() finished in %v\n", time.Now().Sub(t1))
 	return optimal
 }
 
-func (es *state) findLoop() error {
+func (es *Problem) findLoop() error {
 	//fmt.Println("[Finding a valid loop ...]")
 	sLen, dLen := es.sLen, es.dLen
-	epsilon, infinity := es.epsilon, es.infinity
+	infinity := es.infinity
 	// reset row/col flags
 	for i := 0; i < sLen; i++ {
 		es.rowFlags[i] = 0
@@ -524,7 +541,7 @@ func (es *state) findLoop() error {
 			}
 			if start < dLen {
 				for j := start; j < dLen; j++ {
-					if j == curr.col || es.flow[i][j] <= epsilon || es.colFlags[j] == 1 {
+					if j == curr.col || !es.flow[i][j].basic || es.colFlags[j] == 1 {
 						continue
 					}
 					nexti, nextj = i, j
@@ -541,7 +558,7 @@ func (es *state) findLoop() error {
 			}
 			if start < sLen {
 				for i := start; i < sLen; i++ {
-					if i == curr.row || es.flow[i][j] <= epsilon || es.rowFlags[i] == 1 {
+					if i == curr.row || !es.flow[i][j].basic || es.rowFlags[i] == 1 {
 						continue
 					}
 					nexti, nextj = i, j
@@ -557,7 +574,7 @@ func (es *state) findLoop() error {
 			// new cell is the even one in the chain,
 			// need to calculate the min flow
 			if !nextFlag { // next is the even cell
-				nextFlow := es.flow[nexti][nextj]
+				nextFlow := es.flow[nexti][nextj].value
 				if nextFlow < loopEvenMinFlow {
 					loopEvenMinFlow = nextFlow
 				}
@@ -631,35 +648,100 @@ func (es *state) findLoop() error {
 	}
 }
 
-func (es *state) applyOptimization() {
+func (es *Problem) fixDegeneracy(dCnt int) error {
+	//fmt.Printf("[fixing degeneracy for %v variables ...]\n", dCnt)
+	//t1 := time.Now()
+	sLen, dLen := es.sLen, es.dLen
+	left := dCnt
+	for i := 0; i < sLen; i++ {
+		for j := 0; j < dLen; j++ {
+			fc := es.flow[i][j]
+			if fc.basic {
+				continue
+			}
+			// try to find an independent cell in another word,
+			// starting from this cell it shouldn't form a loop
+			es.row, es.col = i, j
+			if err := es.findLoop(); err == nil {
+				continue
+			}
+			// no loop found, set it as basic cell
+			fc.basic = true
+			fc.value = 0
+			left -= 1
+			//fmt.Printf("assigned (%v,%v) as 0-value basic cell.\n", i, j)
+			if left == 0 {
+				break
+			}
+		}
+		if left == 0 {
+			break
+		}
+	}
+	if left > 0 {
+		return fmt.Errorf("[fixDegeneracy(%v)] failed to find %v independent cells.", dCnt, left)
+	}
+	//fmt.Printf("fixDegenracy finished in %v\n", time.Now().Sub(t1))
+	return nil
+}
+
+func (es *Problem) applyOptimization() {
+	//fmt.Println("[Applying optimaztion ...]")
+	//t1 := time.Now()
 	p := es.loop
 	q := p.loopEvenMinFlow
+	epsilon := es.epsilon
+	removed := false
 	for p != nil {
 		row, col := p.row, p.col
-		flow := es.flow[row][col]
+		fc := es.flow[row][col]
 		if p.flag { // odd cell
-			es.flow[row][col] = flow + q
+			fc.basic = true
+			fc.value = fc.value + q
+			//fmt.Printf("added %v to (%v,%v)\n", q, row, col)
 		} else { // even cell
-			es.flow[row][col] = flow - q
+			fval := fc.value - q
+			fc.value = fval
+			//fmt.Printf("substracted %v from (%v,%v)\n", q, row, col)
+			// only remove the first one if multiply flow cells
+			// reach value 0, this is to prevent degeneracy
+			if !removed && fval <= epsilon {
+				fc.basic = false
+				//fmt.Printf("removed (%v,%v) from basic variables.\n", row, col)
+			}
 		}
 		p = p.next
 	}
+
+	//fmt.Printf("applyOptimization finished in %v\n", time.Now().Sub(t1))
 }
 
-func (es *state) solve() error {
+// Try to solve the transportation problem. If it returns nil (no
+// error) then call GetCost(),GetFlowMatrix() or GetSolution() to get
+// the result.
+func (es *Problem) Solve() error {
+	//fmt.Println("[Solving the problem ...]")
+	//t1 := time.Now()
 	flowCnt := es.findFeasibleSolution()
 	//es.printSolution()
+	//t2 := time.Now()
+	//fmt.Printf("found feasible solution in %v\n", t2.Sub(t1))
 
-	// cannot continue with U,V method if
-	// solution flow cell count != len(supply) + len(demand) - 1
-	if flowCnt != es.sLen+es.dLen-1 {
-		return nil
+	// fix degeneracy
+	dCnt := es.sLen + es.dLen - 1 - flowCnt
+	if dCnt > 0 {
+		if err := es.fixDegeneracy(dCnt); err != nil {
+			return err
+		}
 	}
+	//t3 := time.Now()
+	//fmt.Printf("fixed degeneracy in %v\n", t3.Sub(t2))
 
 	maxIter := es.maxIter
 	//optimal := false
 	for {
-		//fmt.Printf("iteration #%v\n", iter)
+		//t4 := time.Now()
+		//fmt.Printf("iteration #%v\n", es.iterCnt)
 		if err := es.computeUV(); err != nil {
 			return err
 		}
@@ -676,20 +758,67 @@ func (es *state) solve() error {
 		es.applyOptimization()
 		//es.printSolution()
 		es.iterCnt += 1
+		//t5 := time.Now()
+		//fmt.Printf("finished optimization iteration #%v in %v\n", es.iterCnt, t5.Sub(t4))
 		if maxIter > 0 && es.iterCnt >= maxIter {
 			break
 		}
 	}
+	//t6 := time.Now()
+	//fmt.Printf("finished %v optimization iterations in %v\n", es.iterCnt, t6.Sub(t3))
 
 	//fmt.Printf("is optimal solution: %v\n", optimal)
-	//fmt.Printf("iteration ran: %v\n", iter)
+	//fmt.Printf("iteration ran: %v\n", es.iterCnt)
 	//fmt.Println()
 
 	return nil
 }
 
-func (es *state) getSolution() (float32, [][]float32) {
-	epsilon, balanced, sLen, dLen := es.epsilon, es.balanced, 0, 0
+// Get the solution cost, should be called after calling Solve().
+func (es *Problem) GetCost() float32 {
+	sLen, dLen := es.sLen, es.dLen
+	cost := float32(0)
+	for i := 0; i < sLen; i++ {
+		for j := 0; j < dLen; j++ {
+			fc := es.flow[i][j]
+			if !fc.basic || fc.value == 0 {
+				continue
+			}
+			cost += fc.value * es.costMatrix[i][j]
+		}
+	}
+	return cost
+}
+
+// Get the flow matrix, should be called after calling Solve().
+func (es *Problem) GetFlowMatrix() [][]float32 {
+	balanced, sLen, dLen := es.balanced, 0, 0
+	if balanced < 0 {
+		sLen, dLen = es.sLen-1, es.dLen
+	} else if balanced > 0 {
+		sLen, dLen = es.sLen, es.dLen-1
+	} else {
+		sLen, dLen = es.sLen, es.dLen
+	}
+	flow := make([][]float32, sLen)
+	for i := 0; i < sLen; i++ {
+		flow[i] = make([]float32, dLen)
+		for j := 0; j < dLen; j++ {
+			fc := es.flow[i][j]
+			if !fc.basic || fc.value == 0 {
+				continue
+			}
+			fval := fc.value
+			flow[i][j] = fval
+		}
+	}
+	return flow
+}
+
+// Get the solution (both the total cost and the flow matrix), should
+// be called after calling Solve().
+func (es *Problem) GetSolution() (float32, [][]float32) {
+	balanced, sLen, dLen := es.balanced, 0, 0
 	if balanced < 0 {
 		sLen, dLen = es.sLen-1, es.dLen
 	} else if balanced > 0 {
@@ -702,18 +831,19 @@ func (es *state) getSolution() (float32, [][]float32) {
 	for i := 0; i < sLen; i++ {
 		flow[i] = make([]float32, dLen)
 		for j := 0; j < dLen; j++ {
-			f := es.flow[i][j]
-			if f < epsilon {
+			fc := es.flow[i][j]
+			if !fc.basic || fc.value == 0 {
 				continue
 			}
-			flow[i][j] = f
-			cost += f * es.costMatrix[i][j]
+			fval := fc.value
+			flow[i][j] = fval
+			cost += fval * es.costMatrix[i][j]
 		}
 	}
 	return cost, flow
 }
 
-// Solves a given transportation problem and returns the (optimal) solution.
+// Create a transportation problem from the given args.
 //
 //  supply, demand: positive float32 array/slice.
 //  costs: 2-D matrix, row size should match supply length, column
@@ -731,11 +861,8 @@ func (es *state) getSolution() (float32, [][]float32) {
 //   (opt[2]) from the default value, you must also set both MAX_ITER
 //   (opt[0]) and EPSILON (opt[1]).
 //
-//  returns
-//   cost: the solution cost (float32) or -1 if there is error
-//   flow: the flow matrix (float32) or nil if there is error
-//    err: nil or an error object if something goes wrong.
-func Solve(supply, demand []float32, costs [][]float32, opts ...float32) (cost float32, flow [][]float32, err error) {
+//  returns the Problem{} struct.
+func CreateProblem(supply, demand []float32, costs [][]float32, opts ...float32) (*Problem, error) {
 	maxIter, epsilon, infinity := MAX_ITER, EPSILON, INFINITY
 	optsLen := len(opts)
 	if optsLen > 0 {
@@ -743,12 +870,12 @@ func Solve(supply, demand []float32, costs [][]float32, opts ...float32) (cost f
 		if optsLen > 1 {
 			epsilon = opts[1]
 			if epsilon > float32(1e-3) {
-				return float32(-1), nil, fmt.Errorf("Given epsilon is too big (>1e-3): %v", opts[1])
+				return nil, fmt.Errorf("Given epsilon is too big (>1e-3): %v", opts[1])
 			}
 			if optsLen > 2 {
 				infinity = opts[2]
 				if infinity < float32(1e10) {
-					return float32(-1), nil, fmt.Errorf("Given infinity is too small (<1e10): %v", opts[2])
+					return nil, fmt.Errorf("Given infinity is too small (<1e10): %v", opts[2])
 				}
 			}
 		}
@@ -756,16 +883,10 @@ func Solve(supply, demand []float32, costs [][]float32, opts ...float32) (cost f
 
 	//fmt.Printf("maxIter=%v, epsilon=%v, infinity=%v\n", maxIter, epsilon, infinity)
 
-	cost = float32(-1)
-	flow = nil
-	var es *state
-	if es, err = createState(supply, demand, costs, maxIter, epsilon, infinity); err != nil {
-		return
+	p, err := createProblem(supply, demand, costs, maxIter, epsilon, infinity)
+	if err == nil {
+		return p, nil
+	} else {
+		return nil, err
 	}
-	if err = es.solve(); err != nil {
-		return
-	}
-	//es.printSolution()
-	cost, flow = es.getSolution()
-	return
 }

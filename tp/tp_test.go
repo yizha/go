@@ -45,9 +45,9 @@ var testData = []*problem{
 			[]float32{8, 3, 3, 2},
 		},
 	},
-	// balanced (supply/demand perfectly match)
+	// balanced (degeneracy)
 	&problem{
-		id:     "balanced (supply/demand perfectly match)",
+		id:     "balanced (degeneracy)",
 		supply: []float32{300, 400, 500, 200},
 		demand: []float32{300, 400, 500, 200},
 		costs: [][]float32{
@@ -60,7 +60,7 @@ var testData = []*problem{
 
 	// more test data
 	&problem{
-		id:     "more-test-data-1",
+		id:     "misc-1",
 		supply: []float32{45, 90, 95, 75, 105},
 		demand: []float32{120, 80, 50, 75, 85},
 		costs: [][]float32{
@@ -71,18 +71,15 @@ var testData = []*problem{
 			[]float32{4, 3, 4, 5, 11},
 		},
 	},
-}
 
-var debugData = []*problem{
 	&problem{
-		id:     "balanced (supply/demand perfectly match)",
-		supply: []float32{300, 400, 500, 200},
-		demand: []float32{300, 400, 500, 200},
+		id:     "misc-2",
+		supply: []float32{35, 50, 40},
+		demand: []float32{45, 20, 30, 30},
 		costs: [][]float32{
-			[]float32{0, 2, 8, 4},
-			[]float32{2, 0, 5, 9},
-			[]float32{8, 5, 0, 3},
-			[]float32{4, 9, 3, 0},
+			[]float32{8, 6, 10, 9},
+			[]float32{9, 12, 13, 7},
+			[]float32{14, 9, 16, 5},
 		},
 	},
 }
@@ -118,15 +115,20 @@ func printProblemAndSolution(p *problem, solutionCost float32, flow [][]float32)
 }
 
 func TestTP(t *testing.T) {
-	for _, tp := range testData {
-		//for _, tp := range debugData {
-		cost, flow, err := Solve(tp.supply, tp.demand, tp.costs, 3)
+	max := len(testData)
+	for i := 0; i < max; i++ {
+		tp := testData[i]
+		p, err := CreateProblem(tp.supply, tp.demand, tp.costs)
 		if err != nil {
-			t.Error("failed to solve givn TP problem:", err)
-			//fmt.Println(err)
-			//os.Exit(1)
+			t.Error(fmt.Sprintf("failed to create the problem %v", tp.id), err)
 		} else {
-			printProblemAndSolution(tp, cost, flow)
+			err = p.Solve()
+			if err != nil {
+				t.Error(fmt.Sprintf("failed to solve the problem %v", tp.id), err)
+			} else {
+				cost, flow := p.GetSolution()
+				printProblemAndSolution(tp, cost, flow)
+			}
 		}
 	}
 }
