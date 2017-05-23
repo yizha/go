@@ -728,11 +728,14 @@ func (es *Problem) Solve() error {
 	//fmt.Printf("found feasible solution in %v\n", t2.Sub(t1))
 
 	// fix degeneracy
-	dCnt := es.sLen + es.dLen - 1 - flowCnt
+	correctCnt := es.sLen + es.dLen - 1
+	dCnt := correctCnt - flowCnt
 	if dCnt > 0 {
 		if err := es.fixDegeneracy(dCnt); err != nil {
 			return err
 		}
+	} else if dCnt < 0 {
+		return fmt.Errorf("feasible solution has %v basic cells, while it should be %v!", flowCnt, correctCnt)
 	}
 	//t3 := time.Now()
 	//fmt.Printf("fixed degeneracy in %v\n", t3.Sub(t2))
