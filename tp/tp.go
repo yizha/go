@@ -775,7 +775,7 @@ func (es *Problem) GetCost() float64 {
 }
 
 // Get the flow matrix, should be called after calling Solve().
-func (es *Problem) GetFlowMatrix() [][]float64 {
+func (es *Problem) GetFlow() [][]float64 {
 	balanced, sLen, dLen := es.balanced, 0, 0
 	if balanced < 0 {
 		sLen, dLen = es.sLen-1, es.dLen
@@ -801,7 +801,7 @@ func (es *Problem) GetFlowMatrix() [][]float64 {
 
 // Get the solution (both the total cost and the flow matrix), should
 // be called after calling Solve().
-func (es *Problem) GetSolution() (float64, [][]float64) {
+func (es *Problem) GetCostAndFlow() (float64, [][]float64) {
 	balanced, sLen, dLen := es.balanced, 0, 0
 	if balanced < 0 {
 		sLen, dLen = es.sLen-1, es.dLen

@@ -125,7 +125,7 @@ func TestTP(t *testing.T) {
 			if err != nil {
 				t.Error(fmt.Sprintf("failed to solve the problem %v", tp.id), err)
 			} else {
-				cost, flow := p.GetSolution()
+				cost, flow := p.GetCostAndFlow()
 				printProblemAndSolution(tp, cost, flow)
 			}
 		}
