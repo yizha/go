@@ -120,10 +120,12 @@ func TestTP(t *testing.T) {
 		p, err := CreateProblem(tp.supply, tp.demand, tp.costs)
 		if err != nil {
 			t.Error(fmt.Sprintf("failed to create the problem %v", tp.id), err)
+			return
 		} else {
 			err = p.Solve()
 			if err != nil {
 				t.Error(fmt.Sprintf("failed to solve the problem %v", tp.id), err)
+				return
 			} else {
 				cost, flow := p.GetCostAndFlow()
 				printProblemAndSolution(tp, cost, flow)
