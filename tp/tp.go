@@ -98,20 +98,6 @@ func (c *cell) String() string {
 	return fmt.Sprintf("(%v,%v)/%v/%v", c.row, c.col, direction, sign)
 }
 
-/*func f32Min(a, b float64) float64 {
-	if a < b {
-		return a
-	}
-	return b
-}
-
-func f32Max(a, b float64) float64 {
-	if a > b {
-		return a
-	}
-	return b
-}*/
-
 func createProblem(s, d []float64, c [][]float64, maxIter int, epsilon float64) (*Problem, error) {
 	sLen := len(s)
 	if sLen < 1 {
@@ -135,9 +121,6 @@ func createProblem(s, d []float64, c [][]float64, maxIter int, epsilon float64) 
 		}
 		sSum += s[i]
 	}
-	//if sSum <= epsilon {
-	//	return nil, fmt.Errorf("total supply is ")
-	//}
 	for i := 0; i < dLen; i++ {
 		if d[i] < epsilon {
 			return nil, fmt.Errorf("demand[%v]=%v is too small (<%v)!", i, d[i], epsilon)
@@ -226,7 +209,7 @@ func createProblem(s, d []float64, c [][]float64, maxIter int, epsilon float64) 
 		}
 	}
 
-	// create emd-state struct
+	// create flow slice
 	flow := make([][]*flowcell, sLen)
 	for i := 0; i < sLen; i++ {
 		flow[i] = make([]*flowcell, dLen)
@@ -234,6 +217,7 @@ func createProblem(s, d []float64, c [][]float64, maxIter int, epsilon float64) 
 			flow[i][j] = &flowcell{}
 		}
 	}
+	// create Problem struct
 	return &Problem{
 		epsilon:  epsilon,
 		infinity: math.Inf(1),
