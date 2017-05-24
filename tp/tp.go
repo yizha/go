@@ -697,9 +697,8 @@ func (es *Problem) applyOptimization() {
 	//fmt.Printf("applyOptimization finished in %v\n", time.Now().Sub(t1))
 }
 
-// Try to solve the transportation problem. If it returns nil (no
-// error) then call GetCost(),GetFlowMatrix() or GetSolution() to get
-// the result.
+// Solve the transportation problem.
+// Returns error if something goes wrong.
 func (es *Problem) Solve() error {
 	//fmt.Println("[Solving the problem ...]")
 	//t1 := time.Now()
