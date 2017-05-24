@@ -7,83 +7,83 @@ import (
 
 type TestProblem struct {
 	id             string
-	supply, demand []float32
-	costs          [][]float32
+	supply, demand []float64
+	costs          [][]float64
 }
 
 var testData = []*TestProblem{
 
 	&TestProblem{
 		id:     "balanced (supply == demand)",
-		supply: []float32{300, 400, 500},
-		demand: []float32{250, 350, 400, 200},
-		costs: [][]float32{
-			[]float32{3, 1, 7, 4},
-			[]float32{2, 6, 5, 9},
-			[]float32{8, 3, 3, 2},
+		supply: []float64{300, 400, 500},
+		demand: []float64{250, 350, 400, 200},
+		costs: [][]float64{
+			[]float64{3, 1, 7, 4},
+			[]float64{2, 6, 5, 9},
+			[]float64{8, 3, 3, 2},
 		},
 	},
 
 	&TestProblem{
 		id:     "unbalanced (supply > demand)",
-		supply: []float32{300, 400, 570},
-		demand: []float32{250, 350, 400, 200},
-		costs: [][]float32{
-			[]float32{3, 1, 7, 4},
-			[]float32{2, 6, 5, 9},
-			[]float32{8, 3, 3, 2},
+		supply: []float64{300, 400, 570},
+		demand: []float64{250, 350, 400, 200},
+		costs: [][]float64{
+			[]float64{3, 1, 7, 4},
+			[]float64{2, 6, 5, 9},
+			[]float64{8, 3, 3, 2},
 		},
 	},
 
 	&TestProblem{
 		id:     "unbalanced (supply < demand)",
-		supply: []float32{300, 400, 500},
-		demand: []float32{250, 350, 440, 280},
-		costs: [][]float32{
-			[]float32{3, 1, 7, 4},
-			[]float32{2, 6, 5, 9},
-			[]float32{8, 3, 3, 2},
+		supply: []float64{300, 400, 500},
+		demand: []float64{250, 350, 440, 280},
+		costs: [][]float64{
+			[]float64{3, 1, 7, 4},
+			[]float64{2, 6, 5, 9},
+			[]float64{8, 3, 3, 2},
 		},
 	},
 
 	&TestProblem{
 		id:     "balanced (degeneracy)",
-		supply: []float32{300, 400, 500, 200},
-		demand: []float32{300, 400, 500, 200},
-		costs: [][]float32{
-			[]float32{0, 2, 8, 4},
-			[]float32{2, 0, 5, 9},
-			[]float32{8, 5, 0, 3},
-			[]float32{4, 9, 3, 0},
+		supply: []float64{300, 400, 500, 200},
+		demand: []float64{300, 400, 500, 200},
+		costs: [][]float64{
+			[]float64{0, 2, 8, 4},
+			[]float64{2, 0, 5, 9},
+			[]float64{8, 5, 0, 3},
+			[]float64{4, 9, 3, 0},
 		},
 	},
 
 	&TestProblem{
 		id:     "misc-1",
-		supply: []float32{45, 90, 95, 75, 105},
-		demand: []float32{120, 80, 50, 75, 85},
-		costs: [][]float32{
-			[]float32{6, 6, 9, 4, 10},
-			[]float32{3, 2, 7, 5, 12},
-			[]float32{8, 7, 5, 6, 4},
-			[]float32{11, 12, 9, 5, 2},
-			[]float32{4, 3, 4, 5, 11},
+		supply: []float64{45, 90, 95, 75, 105},
+		demand: []float64{120, 80, 50, 75, 85},
+		costs: [][]float64{
+			[]float64{6, 6, 9, 4, 10},
+			[]float64{3, 2, 7, 5, 12},
+			[]float64{8, 7, 5, 6, 4},
+			[]float64{11, 12, 9, 5, 2},
+			[]float64{4, 3, 4, 5, 11},
 		},
 	},
 
 	&TestProblem{
 		id:     "misc-2",
-		supply: []float32{35, 50, 40},
-		demand: []float32{45, 20, 30, 30},
-		costs: [][]float32{
-			[]float32{8, 6, 10, 9},
-			[]float32{9, 12, 13, 7},
-			[]float32{14, 9, 16, 5},
+		supply: []float64{35, 50, 40},
+		demand: []float64{45, 20, 30, 30},
+		costs: [][]float64{
+			[]float64{8, 6, 10, 9},
+			[]float64{9, 12, 13, 7},
+			[]float64{14, 9, 16, 5},
 		},
 	},
 }
 
-func printProblemAndSolution(p *TestProblem, solutionCost float32, flow [][]float32) {
+func printProblemAndSolution(p *TestProblem, solutionCost float64, flow [][]float64) {
 	sLen, dLen := len(p.supply), len(p.demand)
 	fmt.Printf("Problem [%v]\n", p.id)
 	fmt.Printf(" Supply: %v\n", p.supply)

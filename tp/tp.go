@@ -2,15 +2,13 @@ package tp
 
 import (
 	"fmt"
+	"math"
 	//"time"
 )
 
 const (
 	// default EPSILON value for checking if a value is zero or not
-	EPSILON = float32(1e-6)
-
-	// default INFINITY value for calculating some minimal value
-	INFINITY = float32(1e20)
+	EPSILON = float64(1e-6)
 
 	// default max iterations for optimizing the solution
 	MAX_ITER = 100
@@ -19,13 +17,13 @@ const (
 type Problem struct {
 
 	// 'static' variables
-	epsilon, infinity float32
+	epsilon, infinity float64
 	maxIter           int
 
 	// inputs, could be adjusted if supply/demand is unbalanced
-	supply     []float32
-	demand     []float32
-	costMatrix [][]float32
+	supply     []float64
+	demand     []float64
+	costMatrix [][]float64
 
 	// balance flag
 	//  -1: supply < demand
@@ -38,13 +36,13 @@ type Problem struct {
 
 	// total amount to tranport from producers to consumers
 	// including the dummy amount if inputs are unbalanced
-	quatity float32
+	quatity float64
 
 	// iteration count
 	iterCnt int
 
 	// u, v matrix
-	u, v []float32
+	u, v []float64
 
 	// optimization starting cell
 	row, col int
@@ -70,7 +68,7 @@ type Problem struct {
 // if it is a basic variable with value 0
 type flowcell struct {
 	basic bool
-	value float32
+	value float64
 }
 
 type cell struct {
@@ -86,7 +84,7 @@ type cell struct {
 	flag bool
 
 	// minimum flow value of the even cell in the loop/chain
-	loopEvenMinFlow float32
+	loopEvenMinFlow float64
 
 	// pointers to prev/next cell
 	prev, next *cell
@@ -100,21 +98,21 @@ func (c *cell) String() string {
 	return fmt.Sprintf("(%v,%v)/%v/%v", c.row, c.col, direction, sign)
 }
 
-func f32Min(a, b float32) float32 {
+/*func f32Min(a, b float64) float64 {
 	if a < b {
 		return a
 	}
 	return b
 }
 
-func f32Max(a, b float32) float32 {
+func f32Max(a, b float64) float64 {
 	if a > b {
 		return a
 	}
 	return b
-}
+}*/
 
-func createProblem(s, d []float32, c [][]float32, maxIter int, epsilon, infinity float32) (*Problem, error) {
+func createProblem(s, d []float64, c [][]float64, maxIter int, epsilon float64) (*Problem, error) {
 	sLen := len(s)
 	if sLen < 1 {
 		return nil, fmt.Errorf("not enough producers, need at least 1!")
@@ -130,7 +128,7 @@ func createProblem(s, d []float32, c [][]float32, maxIter int, epsilon, infinity
 		return nil, fmt.Errorf("consumer count doesn't match 2nd dimension length of costMatrix!")
 	}
 
-	var sSum, dSum, quatity float32
+	var sSum, dSum, quatity float64
 	for i := 0; i < sLen; i++ {
 		if s[i] < epsilon {
 			return nil, fmt.Errorf("supply[%v]=%v is too small (<%v)!", i, s[i], epsilon)
@@ -146,7 +144,7 @@ func createProblem(s, d []float32, c [][]float32, maxIter int, epsilon, infinity
 		}
 		dSum += d[i]
 	}
-	diff := float32(0)
+	diff := float64(0)
 	balanced := 0
 	if sSum > dSum {
 		diff = sSum - dSum
@@ -160,25 +158,25 @@ func createProblem(s, d []float32, c [][]float32, maxIter int, epsilon, infinity
 		quatity = sSum
 		balanced = 0
 	}
-	var supply, demand []float32
-	var costMatrix [][]float32
+	var supply, demand []float64
+	var costMatrix [][]float64
 	if diff > epsilon { // unbalanced
 		if sSum > dSum {
 			// copy supply
-			supply = make([]float32, sLen)
+			supply = make([]float64, sLen)
 			for i := 0; i < sLen; i++ {
 				supply[i] = s[i]
 			}
 			// copy demand and add one more (diff)
-			demand = make([]float32, dLen+1)
+			demand = make([]float64, dLen+1)
 			for i := 0; i < dLen; i++ {
 				demand[i] = d[i]
 			}
 			demand[dLen] = diff
 			// copy cost matrix, append one column (0s)
-			costMatrix = make([][]float32, sLen)
+			costMatrix = make([][]float64, sLen)
 			for i := 0; i < sLen; i++ {
-				costMatrix[i] = make([]float32, dLen+1)
+				costMatrix[i] = make([]float64, dLen+1)
 				for j := 0; j < dLen; j++ {
 					costMatrix[i][j] = c[i][j]
 				}
@@ -188,40 +186,40 @@ func createProblem(s, d []float32, c [][]float32, maxIter int, epsilon, infinity
 			dLen += 1
 		} else { // sSum < dSum
 			// copy supply and add one more (diff)
-			supply = make([]float32, sLen+1)
+			supply = make([]float64, sLen+1)
 			for i := 0; i < sLen; i++ {
 				supply[i] = s[i]
 			}
 			supply[sLen] = diff
 			// copy demand
-			demand = make([]float32, dLen)
+			demand = make([]float64, dLen)
 			for i := 0; i < dLen; i++ {
 				demand[i] = d[i]
 			}
 			// copy cost matrix and append one row (0s)
-			costMatrix = make([][]float32, sLen+1)
+			costMatrix = make([][]float64, sLen+1)
 			for i := 0; i < sLen; i++ {
-				costMatrix[i] = make([]float32, dLen)
+				costMatrix[i] = make([]float64, dLen)
 				for j := 0; j < dLen; j++ {
 					costMatrix[i][j] = c[i][j]
 				}
 			}
-			costMatrix[sLen] = make([]float32, dLen)
+			costMatrix[sLen] = make([]float64, dLen)
 			// fix supply size
 			sLen += 1
 		}
 	} else { // balanced
-		supply = make([]float32, sLen)
+		supply = make([]float64, sLen)
 		for i := 0; i < sLen; i++ {
 			supply[i] = s[i]
 		}
-		demand = make([]float32, dLen)
+		demand = make([]float64, dLen)
 		for i := 0; i < dLen; i++ {
 			demand[i] = d[i]
 		}
-		costMatrix = make([][]float32, sLen)
+		costMatrix = make([][]float64, sLen)
 		for i := 0; i < sLen; i++ {
-			costMatrix[i] = make([]float32, dLen)
+			costMatrix[i] = make([]float64, dLen)
 			for j := 0; j < dLen; j++ {
 				costMatrix[i][j] = c[i][j]
 			}
@@ -238,7 +236,7 @@ func createProblem(s, d []float32, c [][]float32, maxIter int, epsilon, infinity
 	}
 	return &Problem{
 		epsilon:  epsilon,
-		infinity: infinity,
+		infinity: math.Inf(1),
 		maxIter:  maxIter,
 
 		supply:     supply,
@@ -250,8 +248,8 @@ func createProblem(s, d []float32, c [][]float32, maxIter int, epsilon, infinity
 		dLen:     dLen,
 		quatity:  quatity,
 		iterCnt:  0,
-		u:        make([]float32, sLen),
-		v:        make([]float32, dLen),
+		u:        make([]float64, sLen),
+		v:        make([]float64, dLen),
 		row:      -1,
 		col:      -1,
 		rowFlags: make([]int, sLen),
@@ -264,7 +262,7 @@ func createProblem(s, d []float32, c [][]float32, maxIter int, epsilon, infinity
 
 func (es *Problem) printSolution() {
 	fmt.Println("[Solution]")
-	cost := float32(0)
+	cost := float64(0)
 	for i := 0; i < es.sLen; i++ {
 		for j := 0; j < es.dLen; j++ {
 			if !es.flow[i][j].basic {
@@ -289,8 +287,7 @@ func (es *Problem) findFeasibleSolution() int {
 	//fmt.Println("[Finding feasible solution ...]")
 	//t1 := time.Now()
 
-	sLen, dLen := es.sLen, es.dLen
-	epsilon, infinity := es.epsilon, es.infinity
+	sLen, dLen, epsilon, infinity := es.sLen, es.dLen, es.epsilon, es.infinity
 
 	quatity := es.quatity
 	//fmt.Printf("quatity=%v\n", quatity)
@@ -317,8 +314,8 @@ func (es *Problem) findFeasibleSolution() int {
 				} else if cost == minCost {
 					// for same cost cell, choose the one which
 					// transports more
-					sq := f32Min(es.supply[si], es.demand[sj])
-					q := f32Min(es.supply[i], es.demand[j])
+					sq := math.Min(es.supply[si], es.demand[sj])
+					q := math.Min(es.supply[i], es.demand[j])
 					if q > sq {
 						si, sj = i, j
 					}
@@ -329,7 +326,7 @@ func (es *Problem) findFeasibleSolution() int {
 		s := es.supply[si]
 		d := es.demand[sj]
 		diff := s - d
-		q := float32(0)
+		q := float64(0)
 		if diff > epsilon { // s > d
 			q = d
 			es.supply[si] = diff
@@ -378,7 +375,7 @@ func (es *Problem) computeUV() error {
 	// computed counts
 	uComputedCnt, vComputedCnt := 0, 0
 	// set u[0] = 0
-	es.u[0] = float32(0)
+	es.u[0] = float64(0)
 	es.rowFlags[0] = 1
 	uComputedCnt += 1
 	//fmt.Println("set u[0]=0")
@@ -476,7 +473,7 @@ func (es *Problem) isOptimal() bool {
 	epsilon := es.epsilon
 
 	es.row, es.col = -1, -1
-	pMax := float32(-1)
+	pMax := float64(-1)
 	for i := 0; i < sLen; i++ {
 		for j := 0; j < dLen; j++ {
 			if es.flow[i][j].basic {
@@ -778,9 +775,9 @@ func (es *Problem) Solve() error {
 }
 
 // Get the solution cost, should be called after calling Solve().
-func (es *Problem) GetCost() float32 {
+func (es *Problem) GetCost() float64 {
 	sLen, dLen := es.sLen, es.dLen
-	cost := float32(0)
+	cost := float64(0)
 	for i := 0; i < sLen; i++ {
 		for j := 0; j < dLen; j++ {
 			fc := es.flow[i][j]
@@ -794,7 +791,7 @@ func (es *Problem) GetCost() float32 {
 }
 
 // Get the flow matrix, should be called after calling Solve().
-func (es *Problem) GetFlowMatrix() [][]float32 {
+func (es *Problem) GetFlowMatrix() [][]float64 {
 	balanced, sLen, dLen := es.balanced, 0, 0
 	if balanced < 0 {
 		sLen, dLen = es.sLen-1, es.dLen
@@ -803,9 +800,9 @@ func (es *Problem) GetFlowMatrix() [][]float32 {
 	} else {
 		sLen, dLen = es.sLen, es.dLen
 	}
-	flow := make([][]float32, sLen)
+	flow := make([][]float64, sLen)
 	for i := 0; i < sLen; i++ {
-		flow[i] = make([]float32, dLen)
+		flow[i] = make([]float64, dLen)
 		for j := 0; j < dLen; j++ {
 			fc := es.flow[i][j]
 			if !fc.basic || fc.value == 0 {
@@ -820,7 +817,7 @@ func (es *Problem) GetFlowMatrix() [][]float32 {
 
 // Get the solution (both the total cost and the flow matrix), should
 // be called after calling Solve().
-func (es *Problem) GetSolution() (float32, [][]float32) {
+func (es *Problem) GetSolution() (float64, [][]float64) {
 	balanced, sLen, dLen := es.balanced, 0, 0
 	if balanced < 0 {
 		sLen, dLen = es.sLen-1, es.dLen
@@ -829,10 +826,10 @@ func (es *Problem) GetSolution() (float32, [][]float32) {
 	} else {
 		sLen, dLen = es.sLen, es.dLen
 	}
-	cost := float32(0)
-	flow := make([][]float32, sLen)
+	cost := float64(0)
+	flow := make([][]float64, sLen)
 	for i := 0; i < sLen; i++ {
-		flow[i] = make([]float32, dLen)
+		flow[i] = make([]float64, dLen)
 		for j := 0; j < dLen; j++ {
 			fc := es.flow[i][j]
 			if !fc.basic || fc.value == 0 {
@@ -848,45 +845,35 @@ func (es *Problem) GetSolution() (float32, [][]float32) {
 
 // Create a transportation problem from the given args.
 //
-//  supply, demand: positive float32 array/slice.
+//  supply, demand: positive float64 array/slice.
 //  costs: 2-D matrix, row size should match supply length, column
 //         size should match demand length.
 //
 //  opts is for optional args:
 //   opts[0]: MAX_ITER, max iterations to run when optimizing the
 //            solution, default to 100.
-//   opts[1]: EPSILON, used to tell if a float32 value is zero or not,
+//   opts[1]: EPSILON, used to tell if a float64 value is zero or not,
 //            default to 1e-6.
-//   opts[2]: INFINITY, used as the ceiling value when find some min
-//            value, default to 1e20.
 //   if you need to use a non-default EPSILON (opt[1]), you must also
-//   set MAX_ITER (opt[0]), similarly to set a different INFINITY
-//   (opt[2]) from the default value, you must also set both MAX_ITER
-//   (opt[0]) and EPSILON (opt[1]).
+//   set MAX_ITER (opt[0]).
 //
 //  returns the Problem{} struct.
-func CreateProblem(supply, demand []float32, costs [][]float32, opts ...float32) (*Problem, error) {
-	maxIter, epsilon, infinity := MAX_ITER, EPSILON, INFINITY
+func CreateProblem(supply, demand []float64, costs [][]float64, opts ...float64) (*Problem, error) {
+	maxIter, epsilon := MAX_ITER, EPSILON
 	optsLen := len(opts)
 	if optsLen > 0 {
 		maxIter = int(opts[0])
 		if optsLen > 1 {
 			epsilon = opts[1]
-			if epsilon > float32(1e-3) {
+			if epsilon > float64(1e-3) {
 				return nil, fmt.Errorf("Given epsilon is too big (>1e-3): %v", opts[1])
-			}
-			if optsLen > 2 {
-				infinity = opts[2]
-				if infinity < float32(1e10) {
-					return nil, fmt.Errorf("Given infinity is too small (<1e10): %v", opts[2])
-				}
 			}
 		}
 	}
 
-	//fmt.Printf("maxIter=%v, epsilon=%v, infinity=%v\n", maxIter, epsilon, infinity)
+	//fmt.Printf("maxIter=%v, epsilon=%v\n", maxIter, epsilon)
 
-	p, err := createProblem(supply, demand, costs, maxIter, epsilon, infinity)
+	p, err := createProblem(supply, demand, costs, maxIter, epsilon)
 	if err == nil {
 		return p, nil
 	} else {
