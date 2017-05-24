@@ -1,1 +1,1 @@
-# Misc Functions/Libraries implemented in Go.
+# Misc functions/libraries implemented in Go.
