@@ -67,6 +67,7 @@ func TestW2V(t *testing.T) {
 	//fmt.Println(m)
 	if err = sameModel(model, m); err != nil {
 		t.Error("Model changed after write/read:", err)
+		return
 	}
 	// test get vector
 	v := m.GetVectorByWord("test")
