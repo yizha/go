@@ -100,13 +100,3 @@ func WMD(d1, d2 []string, m *w2v.Model) (float64, error) {
 	}
 	return p.GetCost(), nil
 }
-
-// returns the word-move-similarity between the two given words slice.
-//  wms = 1 / (1 + wmd).
-func WMS(d1, d2 []string, m *w2v.Model) (float64, error) {
-	d, err := WMD(d1, d2, m)
-	if err != nil {
-		return -1, err
-	}
-	return float64(1) / (float64(1) + d), nil
-}
