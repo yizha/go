@@ -688,12 +688,14 @@ func (es *Problem) applyOptimization() {
 			// reach value 0, this is to prevent degeneracy
 			if !removed && fval <= epsilon {
 				fc.basic = false
+				removed = true
 				//fmt.Printf("removed (%v,%v) from basic variables.\n", row, col)
 			}
 		}
 		p = p.next
 	}
 
+	//fmt.Println()
 	//fmt.Printf("applyOptimization finished in %v\n", time.Now().Sub(t1))
 }
 
@@ -704,6 +706,7 @@ func (es *Problem) Solve() error {
 	//t1 := time.Now()
 	flowCnt := es.findFeasibleSolution()
 	//es.printSolution()
+	//fmt.Printf("m=%v,n=%v,flowCnt=%v\n", es.sLen, es.dLen, flowCnt)
 	//t2 := time.Now()
 	//fmt.Printf("found feasible solution in %v\n", t2.Sub(t1))
 
@@ -717,6 +720,7 @@ func (es *Problem) Solve() error {
 	} else if dCnt < 0 {
 		return fmt.Errorf("feasible solution has %v basic cells, while it should be %v!", flowCnt, correctCnt)
 	}
+	//es.printSolution()
 	//t3 := time.Now()
 	//fmt.Printf("fixed degeneracy in %v\n", t3.Sub(t2))
 
