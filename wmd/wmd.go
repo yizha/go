@@ -77,7 +77,7 @@ func calculateDistanceMatrix(d1, d2 *nbdoc, vsize int) [][]float64 {
 // returns the word-move-distance between the given two words slice
 // if one of the words slice doesn't have any word in the model then
 // this function returns math.Inf(1).
-func WMD(d1, d2 []string, m *w2v.Model) (float64, error) {
+func Wmd(d1, d2 []string, m *w2v.Model) (float64, error) {
 	nbd1 := toNbDoc(d1, m)
 	nbd2 := toNbDoc(d2, m)
 
