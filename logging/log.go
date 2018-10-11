@@ -139,6 +139,10 @@ func SetupGlobalConf(conf *GlobalConf) {
 	}
 }
 
+func init() {
+	SetupGlobalConf(DefaultGlobalConf())
+}
+
 type loggerDefaults struct {
 	level         zerolog.Level
 	writerCreator writer.LogWriterCreator

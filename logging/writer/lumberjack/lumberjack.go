@@ -9,8 +9,8 @@ import (
 	"gopkg.in/natefinch/lumberjack.v2"
 )
 
-// LogWriterCreator is a writer.LogWriterCreator, it can create
-// a lumberjack instance.
+// LogWriterCreator is a writer.LogWriterCreator, which creats
+// a lumberjack instance as writer.LogWriter
 type LogWriterCreator struct {
 	logDirPath string
 	maxSize    int
@@ -19,27 +19,30 @@ type LogWriterCreator struct {
 	compress   bool
 }
 
-func validateLumberjackConfs(dirPath string, maxSize, maxBackups, maxAge int, compress bool) {
+func validateLumberjackConfs(dirPath string, maxSize, maxBackups, maxAge int, compress bool) error {
 	if dirPath == "" {
-		panic("blank log dir path!")
+		return fmt.Errorf("blank log dir path")
 	}
 	if err := os.MkdirAll(dirPath, 0755); err != nil {
-		panic(fmt.Sprintf("failed to mkdir dirs %s, error: %v", dirPath, err))
+		return fmt.Errorf("failed to mkdir dirs %s, error: %v", dirPath, err)
 	}
 	if maxSize < 1 {
-		panic(fmt.Sprintf("maxSize %v is less than 1!", maxSize))
+		return fmt.Errorf("maxSize %v is less than 1", maxSize)
 	}
 	if maxBackups < 0 {
-		panic("maxBackups %v is negative!")
+		return fmt.Errorf("maxBackups %v is negative", maxBackups)
 	}
 	if maxAge < 0 {
-		panic("maxAge %v is negative!")
+		return fmt.Errorf("maxAge %v is negative", maxAge)
 	}
+	return nil
 }
 
 // New creates a Lumberjack log writer creator
 func New(dirPath string, maxSize, maxBackups, maxAge int, compress bool) *LogWriterCreator {
-	validateLumberjackConfs(dirPath, maxSize, maxBackups, maxAge, compress)
+	if err := validateLumberjackConfs(dirPath, maxSize, maxBackups, maxAge, compress); err != nil {
+		panic(err.Error())
+	}
 	return &LogWriterCreator{
 		logDirPath: dirPath,
 		maxSize:    maxSize,
