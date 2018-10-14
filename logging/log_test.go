@@ -20,7 +20,8 @@ func TestLumberjack(t *testing.T) {
 	lg.Info().Msg("output-1")
 	lg = GetLogger("output-2")
 	lg.Info().Msg("output-2")*/
-	CreateLogger("stdout", zerolog.InfoLevel, stdout.New())
+	SetupGlobalConf(DefaultGlobalConf().SetTimestampFormat("2006-01-02T15:04:05.999999"))
+	CreateLogger("stdout", zerolog.InfoLevel, true, false, stdout.New())
 	lg := GetLogger("stdout")
 	lg.Info().Msg("stdout")
 }

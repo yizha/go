@@ -3,7 +3,7 @@ package lumberjack
 import (
 	"fmt"
 	"os"
-	"path"
+	"path/filepath"
 
 	"github.com/yizha/go/logging/writer"
 	"gopkg.in/natefinch/lumberjack.v2"
@@ -54,7 +54,7 @@ func New(dirPath string, maxSize, maxBackups, maxAge int, compress bool) *LogWri
 
 // Create returns an instance of Lumberjack{}
 func (w *LogWriterCreator) Create(id string) writer.LogWriter {
-	fpath := path.Join(w.logDirPath, fmt.Sprintf("%s.log", id))
+	fpath := filepath.Join(w.logDirPath, filepath.FromSlash(fmt.Sprintf("%s.log", id)))
 	f, err := os.OpenFile(fpath, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0755)
 	if err != nil {
 		panic(fmt.Sprintf("failed to open/create %s, error: %v", fpath, err))

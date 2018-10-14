@@ -77,11 +77,9 @@ func (conf *GlobalConf) SetFieldNames(names map[GlobalField]string) *GlobalConf 
 }
 
 // SetTimestampFormat sets the format string for the timestamp field value.
-// The default format is "2006-01-02T15:04:05.999".
+// The default format is empty string ("") which causes a unix time (seconds
+// elapsed since January 1, 1970 UTC) is logged.
 func (conf *GlobalConf) SetTimestampFormat(fmt string) *GlobalConf {
-	if fmt == "" {
-		panic("blank timestamp format!")
-	}
 	conf.timestampFormat = fmt
 	return conf
 }
@@ -111,7 +109,7 @@ func DefaultGlobalConf() *GlobalConf {
 	return &GlobalConf{
 		level:                zerolog.InfoLevel,
 		fieldNames:           DefaultGlobalFieldNames(),
-		timestampFormat:      "2006-01-02T15:04:05.999",
+		timestampFormat:      "",
 		timestampFunc:        func() time.Time { return time.Now().UTC() },
 		callerSkipFrameCount: 2,
 	}
@@ -145,6 +143,8 @@ func init() {
 
 type loggerDefaults struct {
 	level         zerolog.Level
+	withTimestamp bool
+	withCaller    bool
 	writerCreator writer.LogWriterCreator
 }
 
@@ -152,29 +152,55 @@ var (
 	getLoggerCalled = false
 	loggers         = make(map[string]*zerolog.Logger)
 	lock            = &sync.Mutex{}
-	loggerDef       = &loggerDefaults{zerolog.InfoLevel, &stdout.LogWriterCreator{}}
+	loggerDef       = &loggerDefaults{
+		level:         zerolog.InfoLevel,
+		withTimestamp: true,
+		withCaller:    false,
+		writerCreator: &stdout.LogWriterCreator{},
+	}
 )
 
 // SetupDefaults sets up default settings for logger. Inside GetLogger(), it
 // creates logger from this defaults if the requested logger doesn't exist.
-func SetupDefaults(lvl zerolog.Level, writerCreator writer.LogWriterCreator) {
+func SetupDefaults(
+	lvl zerolog.Level,
+	withTimestamp bool,
+	withCaller bool,
+	writerCreator writer.LogWriterCreator) {
 	lock.Lock()
 	defer lock.Unlock()
 	if getLoggerCalled {
 		lg := GetLogger("warn")
 		lg.Info().Msg("ignore call to setupDefaults() as GetLogger() has been invoked.")
 	} else {
-		loggerDef = &loggerDefaults{lvl, writerCreator}
+		loggerDef = &loggerDefaults{
+			level:         lvl,
+			withTimestamp: withTimestamp,
+			withCaller:    withCaller,
+			writerCreator: writerCreator,
+		}
 	}
 }
 
 // CreateLogger creates a logger and stores it for later retrieving.
 // This SHOULD be called at app startup to setup loggers.
-func CreateLogger(id string, lvl zerolog.Level, wcreator writer.LogWriterCreator) {
+func CreateLogger(
+	id string,
+	lvl zerolog.Level,
+	withTimestamp bool,
+	withCaller bool,
+	wcreator writer.LogWriterCreator) {
 	lock.Lock()
 	defer lock.Unlock()
 	w := wcreator.Create(id)
-	lg := zerolog.New(w).Level(lvl).With().Timestamp().Caller().Logger()
+	ctx := zerolog.New(w).Level(lvl).With()
+	if withTimestamp {
+		ctx = ctx.Timestamp()
+	}
+	if withCaller {
+		ctx = ctx.Caller()
+	}
+	lg := ctx.Logger()
 	loggers[id] = &lg
 }
 
@@ -187,7 +213,14 @@ func GetLogger(id string) *zerolog.Logger {
 	lg, ok := loggers[id]
 	if !ok {
 		w := loggerDef.writerCreator.Create(id)
-		newLogger := zerolog.New(w).Level(loggerDef.level).With().Timestamp().Caller().Logger()
+		ctx := zerolog.New(w).Level(loggerDef.level).With()
+		if loggerDef.withTimestamp {
+			ctx = ctx.Timestamp()
+		}
+		if loggerDef.withCaller {
+			ctx = ctx.Caller()
+		}
+		newLogger := ctx.Logger()
 		lg = &newLogger
 		loggers[id] = lg
 	}
